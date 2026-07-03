@@ -1,0 +1,1 @@
+"""Messy FastAPI application fixture."""
