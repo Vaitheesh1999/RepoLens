@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Repository Health Report</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 2rem auto; max-width: 1100px; color: #222; line-height: 1.5; }
+      h1, h2, h3 { color: #0f4c81; }
+      .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px; font-weight: bold; color: white; }
+      .badge.good { background: #2e8b57; }
+      .badge.fair { background: #d28b00; }
+      .badge.poor { background: #c0392b; }
+      .badge.critical { background: #7f1d1d; }
+      .badge.excellent { background: #1f5f3c; }
+      pre { background: #f5f5f5; padding: 1rem; overflow-x: auto; }
+      code { font-family: Consolas, monospace; }
+      table { border-collapse: collapse; width: 100%; margin-bottom: 1rem; }
+      th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
+      th { background: #f3f6fa; }
+    </style>
+  </head>
+  <body>
+    <h1>Repository Health Report — {{ state.get('repo_name') or 'repository' }}</h1>
+    <p>
+      <strong>Architecture Score:</strong>
+      <span class="badge {{ 'excellent' if state.get('repository_facts').metrics.architecture_score >= 1.0 else 'good' if state.get('repository_facts').metrics.architecture_score >= 0.8 else 'fair' if state.get('repository_facts').metrics.architecture_score >= 0.6 else 'poor' if state.get('repository_facts').metrics.architecture_score >= 0.4 else 'critical' }}">
+        {{ state.get('repository_facts').metrics.architecture_score if state.get('repository_facts') else '0.00' }}/1.0
+      </span>
+    </p>
+
+    <h2>Overview</h2>
+    <div>{{ overview | safe }}</div>
+
+    <h2>Metrics</h2>
+    <div>{{ metrics | safe }}</div>
+
+    <h2>Issues</h2>
+    <div>{{ issues | safe }}</div>
+
+    <h2>Separation of Concerns</h2>
+    <div>{{ soc | safe }}</div>
+
+    <h2>Proposed Modularization Plan</h2>
+    <div>{{ plan | safe }}</div>
+
+    <h2>Refactoring Opportunities</h2>
+    <div>{{ feasibility | safe }}</div>
+
+    <h2>Dependency Graph</h2>
+    <pre class="mermaid">{{ mermaid_diagram }}</pre>
+    <script type="module">
+      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+      mermaid.initialize({ startOnLoad: true });
+    </script>
+  </body>
+</html>
