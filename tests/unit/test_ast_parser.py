@@ -11,7 +11,6 @@ from repolens.analysis.ast_parser import (
     _compute_branch_complexity,
     _extract_decorators,
     _extract_dunder_all,
-    _extract_functions,
     _extract_imports,
 )
 

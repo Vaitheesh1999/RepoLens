@@ -17,9 +17,10 @@ class AnalysisConfig(BaseModel):
     max_import_fan_out: int = Field(default=15, ge=1, description="Maximum external imports per file")
 
     # LLM configuration
+    # LLM configuration
     llm_provider: str = Field(default="anthropic", description="LLM provider: 'anthropic' or 'openai'")
     llm_model: str = Field(default="claude-3-5-sonnet-20241022", description="LLM model name")
-
+    api_key: str | None = Field(default=None, description="API key for the selected LLM provider")
     # Unsafe decorator patterns that indicate mixed concerns
     unsafe_decorator_patterns: list[str] = Field(
         default_factory=lambda: [

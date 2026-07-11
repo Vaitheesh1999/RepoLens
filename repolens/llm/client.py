@@ -1,7 +1,6 @@
 """LLM client helpers for RepoLens."""
 
 import os
-from typing import Any
 
 from langchain_core.language_models import BaseChatModel
 
@@ -16,8 +15,11 @@ def get_llm(config: AnalysisConfig | None) -> BaseChatModel | None:
     provider = (config.llm_provider or "anthropic").lower()
     model_name = config.llm_model or "claude-3-5-sonnet-20241022"
 
+    api_key = config.api_key or None
+
     if provider == "anthropic":
-        if not os.getenv("ANTHROPIC_API_KEY"):
+        key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        if not key:
             return None
 
         try:
@@ -26,12 +28,13 @@ def get_llm(config: AnalysisConfig | None) -> BaseChatModel | None:
             return None
 
         try:
-            return ChatAnthropic(model=model_name, temperature=0.1)
+            return ChatAnthropic(model=model_name, temperature=0.1, api_key=key)
         except Exception:  # pragma: no cover - depends on runtime environment
             return None
 
     if provider == "openai":
-        if not os.getenv("OPENAI_API_KEY"):
+        key = api_key or os.getenv("OPENAI_API_KEY")
+        if not key:
             return None
 
         try:
@@ -40,7 +43,7 @@ def get_llm(config: AnalysisConfig | None) -> BaseChatModel | None:
             return None
 
         try:
-            return ChatOpenAI(model=model_name, temperature=0.1)
+            return ChatOpenAI(model=model_name, temperature=0.1, api_key=key)
         except Exception:  # pragma: no cover - depends on runtime environment
             return None
 

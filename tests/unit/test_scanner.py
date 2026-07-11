@@ -3,7 +3,6 @@
 import tempfile
 from pathlib import Path
 
-import pytest
 
 from repolens.analysis.scanner import discover_python_files, detect_framework, detect_python_version
 from repolens.models.config_models import AnalysisConfig

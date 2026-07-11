@@ -1,6 +1,6 @@
 """User management routes."""
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request
 from models.user import User
 from utils.helpers import get_user_summary
 

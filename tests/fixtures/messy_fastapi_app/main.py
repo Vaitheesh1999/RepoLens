@@ -1,12 +1,10 @@
 """Messy FastAPI application - intentionally problematic."""
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Optional, List
-import json
+from typing import Optional
 from datetime import datetime
 from utils import sanitize_string, calculate_hash, get_timestamp
-from models_helper import User, Product
 from database import get_db_connection, init_database
 
 app = FastAPI()

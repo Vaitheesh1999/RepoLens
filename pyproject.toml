@@ -26,3 +26,16 @@ dev = [
 
 [project.scripts]
 repolens = "repolens.main:cli"
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [
+    "tests/fixtures",
+]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
+exclude = [
+    "tests/fixtures",
+]

@@ -21,10 +21,18 @@ console = Console()
 @click.option("--output-dir", default="output", show_default=True, help="Directory for generated reports")
 @click.option("--config", type=click.Path(exists=False, dir_okay=False, path_type=Path), default=None, help="Path to a repolens.toml config file")
 @click.option("--open", is_flag=True, help="Open the generated HTML report in the browser")
-def analyze(repo_path: str, output_dir: str, config: Path | None, open: bool) -> None:
+@click.option("--provider", type=click.Choice(["anthropic", "openai"], case_sensitive=False), default=None, help="LLM provider to use")
+@click.option("--api-key", default=None, help="API key for the selected LLM provider")
+def analyze(repo_path: str, output_dir: str, config: Path | None, open: bool, provider: str | None, api_key: str | None) -> None:
     """Analyze a Python repository and generate a health report."""
     try:
         analysis_config = load_config(config) if config is not None else AnalysisConfig()
+
+        if provider is not None:
+            analysis_config = analysis_config.model_copy(update={"llm_provider": provider.lower()})
+
+        if api_key is not None:
+            analysis_config = analysis_config.model_copy(update={"api_key": api_key})
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),

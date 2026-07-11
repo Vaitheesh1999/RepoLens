@@ -1,6 +1,6 @@
 """Authentication routes."""
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request
 from models.user import User
 from utils.validators import validate_email, validate_password
 

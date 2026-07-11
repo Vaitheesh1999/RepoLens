@@ -14,7 +14,7 @@ from repolens.analysis.soc_signals import extract_soc_signals, has_mixed_signals
 from repolens.graph.state import GraphState
 from repolens.models.config_models import AnalysisConfig
 from repolens.models.issue_models import CandidateGroup, DetectedIssues, SoCCandidate
-from repolens.models.repository_facts import RepositoryFacts, RepositoryMetrics, RepositorySummary
+from repolens.models.repository_facts import RepositoryFacts, RepositorySummary
 
 
 def analysis(state: GraphState) -> dict[str, Any]:

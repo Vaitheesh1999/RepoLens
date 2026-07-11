@@ -11,10 +11,7 @@ from repolens.models.issue_models import CandidateGroup, CircularImport, Detecte
 from repolens.models.repository_facts import GitMetadata, RepositoryFacts, RepositoryMetrics, RepositorySummary
 from repolens.report.sections.feasibility import render_feasibility
 from repolens.report.sections.issues import render_issues
-from repolens.report.sections.metrics import render_metrics
 from repolens.report.sections.overview import render_overview
-from repolens.report.sections.plan import render_plan
-from repolens.report.sections.soc import render_soc
 
 
 def _build_state() -> GraphState:
