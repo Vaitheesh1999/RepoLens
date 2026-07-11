@@ -31,10 +31,11 @@ def parse_file(path: Path, repo_root: Optional[Path] = None) -> FileFacts:
     Raises:
         ParseError: If file cannot be parsed or syntax error occurs
     """
-    path = Path(path).resolve()
+    path = Path(path)
+    resolved_path = path.resolve()
 
     try:
-        source = path.read_text(encoding="utf-8")
+        source = resolved_path.read_text(encoding="utf-8")
     except (OSError, IOError) as e:
         raise ParseError(path, f"Cannot read file: {e}")
 
@@ -57,7 +58,7 @@ def parse_file(path: Path, repo_root: Optional[Path] = None) -> FileFacts:
     if repo_root:
         repo_root = Path(repo_root).resolve()
         try:
-            relative_path = str(path.relative_to(repo_root))
+            relative_path = str(resolved_path.relative_to(repo_root))
         except ValueError:
             pass
 
