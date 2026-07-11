@@ -25,6 +25,9 @@ def semantic_classification(state: GraphState, llm: Any | None = None) -> dict[s
     classifications: list[SoCResult] = []
     errors = list(state.get("errors", []))
 
+    if model is None:
+        return {"soc_classifications": classifications, "errors": errors}
+
     for candidate in soc_candidates:
         prompt = build_soc_prompt(candidate)
         try:

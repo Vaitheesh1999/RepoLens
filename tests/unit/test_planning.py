@@ -5,6 +5,7 @@ from __future__ import annotations
 from repolens.graph.state import GraphState
 from repolens.llm.prompts.planning import build_planning_prompt
 from repolens.llm.schemas.plan import PlannerFeedback, ProposedModule, RefactoringPlan
+from repolens.models.config_models import AnalysisConfig
 from repolens.models.issue_models import CandidateGroup, DetectedIssues
 from repolens.models.repository_facts import RepositorySummary
 from repolens.nodes.planning import planning
@@ -111,3 +112,15 @@ def test_handles_llm_error() -> None:
     assert result["refactoring_plan"] is None
     assert result["plan_valid"] is False
     assert any("boom" in error for error in result["errors"])
+
+
+def test_handles_missing_llm_configuration() -> None:
+    """The node should fall back gracefully when no usable LLM configuration is available."""
+    state = _build_state()
+    state["config"] = AnalysisConfig(llm_provider="unsupported")
+
+    result = planning(state)
+
+    assert result["refactoring_plan"] is None
+    assert result["plan_valid"] is False
+    assert result["errors"] == []

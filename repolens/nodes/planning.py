@@ -30,6 +30,14 @@ def planning(state: GraphState, llm: Any | None = None) -> dict[str, Any]:
     model = llm or get_llm(state.get("config"))
     errors = list(state.get("errors", []))
 
+    if model is None:
+        return {
+            "refactoring_plan": None,
+            "planning_reasoning": "Planning skipped because no LLM model is available.",
+            "plan_valid": False,
+            "errors": errors,
+        }
+
     try:
         structured_model = model.with_structured_output(RefactoringPlan)
         plan = structured_model.invoke(prompt)
