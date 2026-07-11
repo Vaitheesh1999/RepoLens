@@ -78,7 +78,10 @@ def find_duplicates(file_facts: dict[str, FileFacts]) -> list[DuplicateFunction]
             )
         )
 
-    return sorted(duplicates, key=lambda duplicate: (duplicate.function_name, duplicate.locations))
+    return sorted(
+        duplicates,
+        key=lambda duplicate: (duplicate.function_name, duplicate.locations),
+    )
 
 
 def _extract_module_functions(
@@ -93,7 +96,7 @@ def _extract_module_functions(
 
 
 def _strip_docstring(func: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-    """Remove a leading module docstring-style string expression from a function body."""
+    """Remove a leading docstring from a function body."""
     if (
         func.body
         and isinstance(func.body[0], ast.Expr)
