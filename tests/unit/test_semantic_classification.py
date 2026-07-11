@@ -1,7 +1,9 @@
 """Tests for the semantic classification node."""
 
 from repolens.graph.state import GraphState
+from repolens.llm.client import get_llm
 from repolens.llm.schemas.soc import SoCResult
+from repolens.models.config_models import AnalysisConfig
 from repolens.models.issue_models import SoCCandidate
 from repolens.nodes.semantic_classification import semantic_classification
 
@@ -122,3 +124,42 @@ def test_handles_llm_error() -> None:
 
     assert result["soc_classifications"] == []
     assert any("boom" in error for error in result["errors"])
+
+
+def test_handles_missing_llm_configuration() -> None:
+    """The node should fall back gracefully when no usable LLM configuration is available."""
+    state: GraphState = {
+        "repo_path": "tests/fixtures/simple_flask_app",
+        "config": AnalysisConfig(llm_provider="unsupported"),
+        "repo_name": "simple_flask_app",
+        "python_version": None,
+        "framework_detected": "flask",
+        "total_files": 0,
+        "git_metadata": None,
+        "repository_facts": None,
+        "soc_classifications": [],
+        "refactoring_plan": None,
+        "planning_reasoning": "",
+        "plan_valid": False,
+        "validation_retry_count": 0,
+        "planner_feedback": None,
+        "feasibility_result": None,
+        "report_path": None,
+        "errors": [],
+    }
+    repository_facts = type("RepositoryFactsStub", (), {})()
+    repository_facts.soc_candidates = [SoCCandidate(file_path="app.py", decorator_patterns=["app.route"], import_categories=["routing"], function_signatures=["home()"], ast_node_distribution={"route": 1}, has_mixed_signals=False)]
+    state["repository_facts"] = repository_facts  # type: ignore[index]
+
+    result = semantic_classification(state)
+
+    assert result["soc_classifications"] == []
+    assert result["errors"] == []
+
+
+def test_get_llm_returns_none_without_credentials(monkeypatch) -> None:
+    """The helper should not create a client when provider credentials are missing."""
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    assert get_llm(AnalysisConfig()) is None

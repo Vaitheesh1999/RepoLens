@@ -13,7 +13,6 @@ def validation(state: GraphState) -> dict[str, Any]:
     errors = list(state.get("errors", []))
 
     if repository_facts is None or plan is None:
-        errors.append("Validation requires repository facts and a refactoring plan")
         return {
             "plan_valid": False,
             "validation_retry_count": state.get("validation_retry_count", 0) + 1,
@@ -24,7 +23,6 @@ def validation(state: GraphState) -> dict[str, Any]:
     source_file = plan.source_file
     source_facts = repository_facts.file_facts.get(source_file)
     if source_facts is None:
-        errors.append(f"Source file not found in repository facts: {source_file}")
         return {
             "plan_valid": False,
             "validation_retry_count": state.get("validation_retry_count", 0) + 1,
