@@ -5,6 +5,9 @@ from pathlib import Path
 from typing import Optional
 
 from repolens.models.file_facts import ClassFacts, FileFacts, FunctionFacts, ImportInfo
+from repolens.utils.logger import get_logger
+
+logger = get_logger("ast")
 
 
 class ParseError(Exception):
@@ -37,11 +40,13 @@ def parse_file(path: Path, repo_root: Optional[Path] = None) -> FileFacts:
     try:
         source = resolved_path.read_text(encoding="utf-8")
     except (OSError, IOError) as e:
+        logger.warning(f"failed to parse {path}: {e}")
         raise ParseError(path, f"Cannot read file: {e}")
 
     try:
         tree = ast.parse(source)
     except SyntaxError as e:
+        logger.warning(f"failed to parse {path}: {e}")
         raise ParseError(path, f"Syntax error at line {e.lineno}: {e.msg}")
 
     source_lines = source.split("\n")
@@ -77,6 +82,7 @@ def parse_file(path: Path, repo_root: Optional[Path] = None) -> FileFacts:
     # fan_in is computed later when we have the full graph
     import_fan_in = 0
 
+    logger.debug(f"parsed {path}  functions={len(module_functions)}  classes={len(classes)}")
     return FileFacts(
         path=str(path),
         relative_path=relative_path,

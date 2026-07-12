@@ -8,6 +8,9 @@ from pathlib import Path
 
 from repolens.models.file_facts import FileFacts
 from repolens.models.issue_models import DuplicateFunction
+from repolens.utils.logger import get_logger
+
+logger = get_logger("duplicates")
 
 
 def hash_function_ast(func: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
@@ -78,6 +81,7 @@ def find_duplicates(file_facts: dict[str, FileFacts]) -> list[DuplicateFunction]
             )
         )
 
+    logger.info(f"duplicate detection complete  duplicates={len(duplicates)}")
     return sorted(
         duplicates,
         key=lambda duplicate: (duplicate.function_name, duplicate.locations),

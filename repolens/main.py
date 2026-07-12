@@ -6,7 +6,6 @@ import webbrowser
 import click
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
 
 from repolens.config import load_config
 from repolens.graph.builder import run_analysis
@@ -21,83 +20,116 @@ console = Console()
 @click.option("--output-dir", default="output", show_default=True, help="Directory for generated reports")
 @click.option("--config", type=click.Path(exists=False, dir_okay=False, path_type=Path), default=None, help="Path to a repolens.toml config file")
 @click.option("--open", is_flag=True, help="Open the generated HTML report in the browser")
+@click.option("--verbose", is_flag=True, help="Show debug-level logs including raw prompt details")
+@click.option("--log-file", default="logs/repolens.log", show_default=True, help="Path to write log file")
 @click.option("--provider", type=click.Choice(["anthropic", "openai", "groq"], case_sensitive=False), default=None, help="LLM provider to use")
 @click.option("--api-key", default=None, help="API key for the selected LLM provider")
-@click.option("--model", default=None, help="Model name to use — overrides the provider default")
-def analyze(repo_path: str, output_dir: str, config: Path | None, open: bool, provider: str | None, api_key: str | None, model: str | None) -> None:
+@click.option("--model", default=None, help="Model name — overrides the provider default")
+def analyze(
+    repo_path: str,
+    output_dir: str,
+    config: Path | None,
+    open: bool,
+    verbose: bool,
+    log_file: str,
+    provider: str | None,
+    api_key: str | None,
+    model: str | None,
+) -> None:
     """Analyze a Python repository and generate a health report."""
+    from repolens.utils.logger import set_level, log_session_summary, _session
+    set_level(verbose)
+
     try:
         analysis_config = load_config(config) if config is not None else AnalysisConfig()
 
         if provider is not None:
             analysis_config = analysis_config.model_copy(update={"llm_provider": provider.lower()})
-
         if api_key is not None:
             analysis_config = analysis_config.model_copy(update={"api_key": api_key})
-
         if model is not None:
             analysis_config = analysis_config.model_copy(update={"llm_model": model})
-            
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TextColumn("{task.completed}/{task.total}"),
-            TimeElapsedColumn(),
-            console=console,
-            transient=True,
-        ) as progress:
-            tasks = [
-                (1, "Ingestion — Scanning repository..."),
-                (2, "Analysis — Parsing Python files..."),
-                (3, "Semantic Classification — Analysing files for separation of concerns..."),
-                (4, "Planning — Generating modularization plan..."),
-                (5, "Validation — Validating plan..."),
-                (6, "Feasibility — Assessing refactoring safety..."),
-            ]
-            task_ids = []
-            for step, description in tasks:
-                task_ids.append(progress.add_task(description, total=1))
-                progress.update(task_ids[-1], advance=1)
-                progress.refresh()
 
+        # ── Run the graph ──────────────────────────────────────────────
+        console.print("[bold cyan]RepoLens[/bold cyan] — starting analysis\n")
+
+        with console.status("[bold green]Ingestion — Scanning repository...[/bold green]"):
+            pass  # ingestion is near-instant, shown for UX consistency
+
+        console.print("[green]✓[/green] Ingestion complete")
+
+        with console.status("[bold green]Analysis — Parsing Python files...[/bold green]"):
+            pass
+
+        console.print("[green]✓[/green] Analysis complete")
+
+        with console.status("[bold green]Running LangGraph pipeline...[/bold green]"):
             state = run_analysis(repo_path, analysis_config)
-            report_path = generate_report(state, Path(output_dir))
 
-            progress.update(task_ids[-1], completed=1)
-            progress.console.print(f"[green]✓ Report generated:[/green] {report_path}")
+        console.print("[green]✓[/green] Semantic Classification complete")
+        console.print("[green]✓[/green] Planning complete")
+        console.print("[green]✓[/green] Validation complete")
+        console.print("[green]✓[/green] Feasibility complete")
 
-        summary = state.get("repository_facts")
-        issues = summary.issues.total_issue_count if summary is not None else 0
-        architecture_score = summary.metrics.architecture_score if summary is not None else 0.0
-        safe_count = len(state.get("feasibility_result").safe_moves) if state.get("feasibility_result") is not None else 0
+        # ── Generate report ────────────────────────────────────────────
+        report_path = generate_report(state, Path(output_dir))
+        console.print(f"\n[green]✓ Report generated:[/green] {report_path}\n")
+
+        # ── Session summary (logs) ─────────────────────────────────────
+        log_session_summary()
+
+        # ── Terminal panel ─────────────────────────────────────────────
+        facts = state.get("repository_facts")
+        feas  = state.get("feasibility_result")
+
+        architecture_score = facts.metrics.architecture_score if facts else 0.0
+        issues_found       = facts.issues.total_issue_count   if facts else 0
+        safe_count         = len(feas.safe_moves)             if feas  else 0
+
+        if architecture_score > 0.9:
+            rating = "Excellent"
+        elif architecture_score >= 0.8:
+            rating = "Good"
+        elif architecture_score >= 0.6:
+            rating = "Fair"
+        elif architecture_score >= 0.4:
+            rating = "Poor"
+        else:
+            rating = "Critical"
+
         console.print(
             Panel(
-                f"Repository: {state.get('repo_name') or repo_path}\n"
-                f"Architecture Score: {architecture_score:.2f} / 1.0 {'Fair' if architecture_score >= 0.6 else 'Poor' if architecture_score >= 0.4 else 'Critical'}\n"
-                f"Issues Found: {issues}\n"
-                f"Safe Opportunities: {safe_count}\n"
-                f"Report: {report_path}",
-                title="RepoLens — Analysis Complete",
+                f"[bold]Repository:[/bold]        {state.get('repo_name') or repo_path}\n"
+                f"[bold]Architecture Score:[/bold] {architecture_score:.2f} / 1.0  {rating}\n"
+                f"[bold]Issues Found:[/bold]       {issues_found}\n"
+                f"[bold]Safe Moves:[/bold]         {safe_count}\n"
+                f"\n"
+                f"[bold]LLM Calls:[/bold]          {_session['total_calls']}\n"
+                f"[bold]Total Tokens:[/bold]       {_session['total_tokens']:,}\n"
+                f"[bold]LLM Duration:[/bold]       {_session['total_duration']:.2f}s\n"
+                f"\n"
+                f"[bold]Report:[/bold]             {report_path}",
+                title="[bold green]RepoLens — Analysis Complete[/bold green]",
                 border_style="green",
+                padding=(1, 2),
             )
         )
 
         if open:
             html_path = str(Path(report_path).with_suffix(".html"))
             webbrowser.open(html_path)
-    except Exception as exc:  # pragma: no cover - exercised in CLI usage
-        console.print(f"[red]Analysis failed:[/red] {exc}")
+
+    except Exception as exc:  # pragma: no cover
+        console.print(f"\n[red bold]Analysis failed:[/red bold] {exc}")
+        raise
 
 
 @click.group()
 def cli() -> None:
     """RepoLens — AI-powered repository analysis."""
-    pass
 
 
 cli.add_command(analyze)
-
 
 if __name__ == "__main__":
     cli()

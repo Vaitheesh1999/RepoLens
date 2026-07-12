@@ -6,6 +6,9 @@ import re
 import tomllib
 
 from repolens.models.config_models import AnalysisConfig
+from repolens.utils.logger import get_logger
+
+logger = get_logger("scanner")
 
 
 EXCLUDED_DIRS = {
@@ -42,6 +45,7 @@ def discover_python_files(repo_path: Path, config: AnalysisConfig) -> list[Path]
         List of absolute Path objects sorted alphabetically.
         Empty list if no files found (caller handles the error).
     """
+    logger.info(f"scanning {repo_path}")
     repo_path = Path(repo_path).resolve()
 
     if not repo_path.is_dir():
@@ -61,6 +65,7 @@ def discover_python_files(repo_path: Path, config: AnalysisConfig) -> list[Path]
 
         python_files.append(path)
 
+    logger.info(f"found {len(python_files)} python files")
     return sorted(python_files)
 
 
@@ -93,11 +98,14 @@ def detect_framework(
 
         # Explicit priority
         if found_flask:
+            logger.debug("framework detected: flask")
             return "flask"
 
         if found_fastapi:
+            logger.debug("framework detected: fastapi")
             return "fastapi"
 
+        logger.debug("framework detected: unknown")
         return "unknown"
 
 

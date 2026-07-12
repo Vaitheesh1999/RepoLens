@@ -5,6 +5,9 @@ from collections import defaultdict
 from repolens.models.file_facts import FileFacts
 from repolens.models.graph_models import ImportGraph
 from repolens.models.issue_models import CandidateGroup, OversizedFile
+from repolens.utils.logger import get_logger
+
+logger = get_logger("candidates")
 
 DB_IMPORT_HINTS = {"db", "database", "sql", "session", "connection", "query"}
 AUTH_IMPORT_HINTS = {"auth", "jwt", "login", "password", "token", "user"}
@@ -43,6 +46,7 @@ def cluster_by_import_affinity(
             )
         )
 
+    logger.info(f"candidate generation complete  groups={len(candidate_groups)}")
     return candidate_groups
 
 

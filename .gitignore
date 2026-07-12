@@ -44,3 +44,6 @@ Thumbs.db
 vector_store/
 chroma/
 faiss_index/
+
+#logs
+logs/

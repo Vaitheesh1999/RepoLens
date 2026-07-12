@@ -2,6 +2,9 @@
 
 from repolens.models.graph_models import ImportGraph
 from repolens.models.issue_models import CircularImport
+from repolens.utils.logger import get_logger
+
+logger = get_logger("cycles")
 
 
 def find_cycles(graph: ImportGraph) -> list[CircularImport]:
@@ -20,6 +23,7 @@ def find_cycles(graph: ImportGraph) -> list[CircularImport]:
         severity = "error" if len(component) >= 3 else "warning"
         cycles.append(CircularImport(cycle=component, severity=severity))
 
+    logger.info(f"cycle detection complete  cycles={len(cycles)}")
     return cycles
 
 
