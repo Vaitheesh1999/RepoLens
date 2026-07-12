@@ -126,7 +126,13 @@ def analyze(
 
 @click.group()
 def cli() -> None:
-    """RepoLens — AI-powered repository analysis."""
+    """RepoLens — AI-powered repository analysis.
+
+    Run 'repolens analyze --help' to see all analysis options.
+
+    Example:
+        repolens analyze ./my-repo --provider groq --api-key gsk_...
+    """
 
 
 cli.add_command(analyze)
