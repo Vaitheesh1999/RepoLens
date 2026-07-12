@@ -48,30 +48,23 @@ def feasibility(state: GraphState) -> dict[str, Any]:
                 continue
 
             decorators = function_facts.decorators
+            unsafe_patterns_lower = {p.lower() for p in config.unsafe_decorator_patterns}
             unsafe_decorator = any(
-                decorator in config.unsafe_decorator_patterns
-                or decorator.lower() in {pattern.lower() for pattern in config.unsafe_decorator_patterns}
+                decorator.lower() in unsafe_patterns_lower
                 for decorator in decorators
-            )
-            file_is_route_heavy = source_facts.has_route_decorators or any(
-                "route" in decorator.lower() or "router" in decorator.lower()
-                for decorator in decorators
-            )
-            function_uses_route_patterns = any(
-                "route" in decorator.lower() or "router" in decorator.lower()
-                for decorator in decorators
-            ) or any(
-                "route" in snippet.lower() or "router" in snippet.lower()
-                for snippet in [function_name, plan.source_file]
             )
 
-            if unsafe_decorator or file_is_route_heavy or function_uses_route_patterns:
+            if unsafe_decorator:
                 decision = MoveDecision(
                     function_name=function_name,
                     source_file=plan.source_file,
                     proposed_destination=proposed_module.suggested_path,
                     status="unsafe",
-                    reason="Function uses a route or lifecycle decorator that makes extraction unsafe.",
+                    reason=(
+                        f"Function has a route or lifecycle decorator "
+                        f"({', '.join(decorators)}) that registers it at import time. "
+                        f"Moving it would break the registration."
+                    ),
                 )
                 unsafe_moves.append(decision)
                 continue

@@ -13,8 +13,11 @@ FIXTURE_PATH = Path(__file__).resolve().parents[1] / "fixtures" / "simple_flask_
 
 def test_feasibility_node_marks_route_handlers_as_unsafe() -> None:
     """Feasibility should mark route-decorated functions as unsafe to move."""
+    # Use messy fixture — it has functions with actual @app.post decorators
+    messy_fixture_path = Path(__file__).parent.parent / "fixtures" / "messy_fastapi_app"
+
     analysis_result = analysis({
-        "repo_path": str(FIXTURE_PATH),
+        "repo_path": str(messy_fixture_path),
         "config": AnalysisConfig(),
         "errors": [],
     })
@@ -23,20 +26,20 @@ def test_feasibility_node_marks_route_handlers_as_unsafe() -> None:
     assert repository_facts is not None
 
     plan = RefactoringPlan(
-        source_file="app.py",
+        source_file="main.py",
         proposed_modules=[
             ProposedModule(
-                suggested_filename="routes.py",
-                suggested_path="routes.py",
-                functions_to_move=["setup_routes"],
+                suggested_filename="user_routes.py",
+                suggested_path="user_routes.py",
+                functions_to_move=["create_user"],   # has @app.post decorator
                 classes_to_move=[],
-                reasoning="Move route configuration to a new module.",
+                reasoning="Move user route to dedicated module.",
                 confidence=0.8,
                 safety_concerns=[],
             )
         ],
-        functions_staying=["create_app", "setup_error_handlers", "init_app"],
-        overall_reasoning="Keep app setup intact.",
+        functions_staying=["sanitize_string", "calculate_hash"],
+        overall_reasoning="Split routes from utilities.",
         requires_human_review=True,
         overall_confidence=0.7,
     )
@@ -51,4 +54,6 @@ def test_feasibility_node_marks_route_handlers_as_unsafe() -> None:
     feasibility_result = result["feasibility_result"]
     assert feasibility_result is not None
     assert len(feasibility_result.unsafe_moves) >= 1
-    assert feasibility_result.unsafe_moves[0].status == "unsafe"
+    # Confirm the reason mentions decorator, not string matching
+    unsafe = feasibility_result.unsafe_moves[0]
+    assert "decorator" in unsafe.reason.lower()
