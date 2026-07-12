@@ -33,7 +33,7 @@ class TestAnalysisConfig:
         assert config.max_function_count == 10
         assert config.max_branch_complexity == 10
         assert config.max_import_fan_out == 15
-        assert config.llm_provider == "anthropic"
+        assert config.llm_provider == "groq"
         assert len(config.unsafe_decorator_patterns) > 0
         assert "app.route" in config.unsafe_decorator_patterns
 
