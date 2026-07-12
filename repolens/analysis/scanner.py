@@ -64,38 +64,41 @@ def discover_python_files(repo_path: Path, config: AnalysisConfig) -> list[Path]
     return sorted(python_files)
 
 
-def detect_framework(file_paths: list[Path]) -> Literal["flask", "fastapi", "unknown"]:
-    """
-    Detect framework used in the repository.
+def detect_framework(
+    file_paths: list[Path],) -> Literal["flask", "fastapi", "unknown"]:
+        flask_pattern = re.compile(
+            r"\bfrom\s+flask\b|^import\s+flask\b",
+            re.MULTILINE,)
+        fastapi_pattern = re.compile(
+            r"\bfrom\s+fastapi\b|^import\s+fastapi\b",
+            re.MULTILINE,)
 
-    Scans imports from each file using simple string matching.
-    - If any file imports from "flask" → return "flask"
-    - If any file imports from "fastapi" → return "fastapi"
-    - Otherwise → return "unknown"
+        found_flask = False
+        found_fastapi = False
 
-    Args:
-        file_paths: List of Python file paths to scan
+        for file_path in file_paths:
+            try:
+                content = file_path.read_text(
+                    encoding="utf-8",
+                    errors="ignore",)
 
-    Returns:
-        Framework name: "flask", "fastapi", or "unknown"
-    """
-    flask_pattern = re.compile(r"\bfrom\s+flask\b|^import\s+flask\b", re.MULTILINE)
-    fastapi_pattern = re.compile(r"\bfrom\s+fastapi\b|^import\s+fastapi\b", re.MULTILINE)
+                if flask_pattern.search(content):
+                    found_flask = True
 
-    for file_path in file_paths:
-        try:
-            content = file_path.read_text(encoding="utf-8", errors="ignore")
+                if fastapi_pattern.search(content):
+                    found_fastapi = True
 
-            if flask_pattern.search(content):
-                return "flask"
+            except (OSError, IOError):
+                continue
 
-            if fastapi_pattern.search(content):
-                return "fastapi"
-        except (OSError, IOError):
-            # Skip files that cannot be read
-            continue
+        # Explicit priority
+        if found_flask:
+            return "flask"
 
-    return "unknown"
+        if found_fastapi:
+            return "fastapi"
+
+        return "unknown"
 
 
 def detect_python_version(repo_path: Path) -> Optional[str]:
