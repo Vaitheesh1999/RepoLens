@@ -316,8 +316,6 @@ MIT License.
 
 ---
 
-# Author
 
-**Calvin Gabriel**
 
 Built as an AI-assisted repository architecture analysis platform focused on deterministic static analysis and repository intelligence.
