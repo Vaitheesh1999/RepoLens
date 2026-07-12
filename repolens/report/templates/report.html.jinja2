@@ -1,57 +1,763 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Repository Health Report</title>
-    <style>
-      body { font-family: Arial, sans-serif; margin: 2rem auto; max-width: 1100px; color: #222; line-height: 1.5; }
-      h1, h2, h3 { color: #0f4c81; }
-      .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px; font-weight: bold; color: white; }
-      .badge.good { background: #2e8b57; }
-      .badge.fair { background: #d28b00; }
-      .badge.poor { background: #c0392b; }
-      .badge.critical { background: #7f1d1d; }
-      .badge.excellent { background: #1f5f3c; }
-      pre { background: #f5f5f5; padding: 1rem; overflow-x: auto; }
-      code { font-family: Consolas, monospace; }
-      table { border-collapse: collapse; width: 100%; margin-bottom: 1rem; }
-      th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
-      th { background: #f3f6fa; }
-    </style>
-  </head>
-  <body>
-    <h1>Repository Health Report — {{ state.get('repo_name') or 'repository' }}</h1>
-    <p>
-      <strong>Architecture Score:</strong>
-      <span class="badge {{ 'excellent' if state.get('repository_facts').metrics.architecture_score >= 1.0 else 'good' if state.get('repository_facts').metrics.architecture_score >= 0.8 else 'fair' if state.get('repository_facts').metrics.architecture_score >= 0.6 else 'poor' if state.get('repository_facts').metrics.architecture_score >= 0.4 else 'critical' }}">
-        {{ state.get('repository_facts').metrics.architecture_score if state.get('repository_facts') else '0.00' }}/1.0
-      </span>
-    </p>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RepoLens — {{ state.get('repo_name') or 'repository' }}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    <h2>Overview</h2>
-    <div>{{ overview | safe }}</div>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3250;
+      --accent: #6366f1;
+      --accent2: #818cf8;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --orange: #f97316;
+      --red: #ef4444;
+      --purple: #a855f7;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
 
-    <h2>Metrics</h2>
-    <div>{{ metrics | safe }}</div>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
 
-    <h2>Issues</h2>
-    <div>{{ issues | safe }}</div>
+    /* ── Layout ── */
+    .layout { display: flex; min-height: 100vh; }
 
-    <h2>Separation of Concerns</h2>
-    <div>{{ soc | safe }}</div>
+    .sidebar {
+      width: 240px;
+      min-width: 240px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 2rem 1rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
 
-    <h2>Proposed Modularization Plan</h2>
-    <div>{{ plan | safe }}</div>
+    .sidebar-logo {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent2);
+      margin-bottom: 0.25rem;
+      letter-spacing: -0.01em;
+    }
 
-    <h2>Refactoring Opportunities</h2>
-    <div>{{ feasibility | safe }}</div>
+    .sidebar-repo {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+      word-break: break-all;
+    }
 
-    <h2>Dependency Graph</h2>
-    <pre class="mermaid">{{ mermaid_diagram }}</pre>
-    <script type="module">
-      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-      mermaid.initialize({ startOnLoad: true });
-    </script>
-  </body>
+    .sidebar nav a {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0.75rem;
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      transition: background 0.15s, color 0.15s;
+      margin-bottom: 0.15rem;
+    }
+
+    .sidebar nav a:hover {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    .sidebar nav a.active {
+      background: var(--accent);
+      color: white;
+    }
+
+    .sidebar-section-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      padding: 0.5rem 0.75rem 0.25rem;
+      margin-top: 1rem;
+    }
+
+    .main { flex: 1; padding: 2.5rem 3rem; max-width: 960px; }
+
+    /* ── Header ── */
+    .page-header { margin-bottom: 2.5rem; }
+
+    .page-header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .page-header .meta {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    /* ── Score hero ── */
+    .score-hero {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: center;
+      gap: 2.5rem;
+    }
+
+    .score-circle {
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      font-weight: 800;
+      flex-shrink: 0;
+      border: 4px solid;
+    }
+
+    .score-circle.excellent { border-color: var(--green); color: var(--green); }
+    .score-circle.good      { border-color: var(--accent2); color: var(--accent2); }
+    .score-circle.fair      { border-color: var(--yellow); color: var(--yellow); }
+    .score-circle.poor      { border-color: var(--orange); color: var(--orange); }
+    .score-circle.critical  { border-color: var(--red); color: var(--red); }
+
+    .score-label { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+    .score-info h2 { font-size: 1.15rem; font-weight: 600; margin-bottom: 0.4rem; }
+    .score-info p  { font-size: 0.88rem; color: var(--text-muted); max-width: 480px; }
+
+    /* ── Stat cards ── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 1.1rem 1.25rem;
+    }
+
+    .stat-card .stat-value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-card .stat-label { font-size: 0.78rem; color: var(--text-muted); }
+
+    /* ── Sections ── */
+    .section { margin-bottom: 2.5rem; }
+
+    .section-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .card-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+      font-family: "Consolas", "SF Mono", monospace;
+    }
+
+    .card-meta { font-size: 0.82rem; color: var(--text-muted); }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.18rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-green    { background: #14532d44; color: var(--green); border: 1px solid #22c55e44; }
+    .badge-yellow   { background: #78350f44; color: var(--yellow); border: 1px solid #f59e0b44; }
+    .badge-red      { background: #7f1d1d44; color: var(--red); border: 1px solid #ef444444; }
+    .badge-purple   { background: #3b0764aa; color: var(--purple); border: 1px solid #a855f744; }
+    .badge-blue     { background: #1e1b4b44; color: var(--accent2); border: 1px solid #6366f144; }
+    .badge-orange   { background: #7c2d1244; color: var(--orange); border: 1px solid #f9731644; }
+
+    /* ── Table ── */
+    .metrics-table { width: 100%; border-collapse: collapse; font-size: 0.87rem; }
+    .metrics-table th {
+      text-align: left;
+      padding: 0.6rem 1rem;
+      background: var(--surface2);
+      color: var(--text-muted);
+      font-weight: 500;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid var(--border);
+    }
+    .metrics-table td {
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    .metrics-table tr:last-child td { border-bottom: none; }
+    .metrics-table tr:hover td { background: var(--surface2); }
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+
+    /* ── Issue items ── */
+    .issue-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.85rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .issue-item:last-child { border-bottom: none; }
+    .issue-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+    .issue-dot.red    { background: var(--red); }
+    .issue-dot.yellow { background: var(--yellow); }
+    .issue-dot.orange { background: var(--orange); }
+    .issue-text { font-size: 0.86rem; color: var(--text); }
+    .issue-sub  { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── Module plan ── */
+    .module-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 1.1rem 1.4rem;
+      margin-bottom: 0.6rem;
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+    .module-icon {
+      width: 36px; height: 36px;
+      border-radius: var(--radius-sm);
+      background: var(--surface2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .module-name {
+      font-size: 0.88rem;
+      font-weight: 600;
+      font-family: "Consolas", "SF Mono", monospace;
+      color: var(--accent2);
+      margin-bottom: 0.2rem;
+    }
+    .module-functions {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .module-confidence {
+      margin-left: auto;
+      text-align: right;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .module-confidence span {
+      display: block;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--green);
+    }
+
+    /* ── Opportunity rows ── */
+    .opp-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.65rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.84rem;
+    }
+    .opp-row:last-child { border-bottom: none; }
+    .opp-fn {
+      font-family: "Consolas", "SF Mono", monospace;
+      color: var(--text);
+      font-size: 0.82rem;
+      min-width: 180px;
+    }
+    .opp-arrow { color: var(--text-muted); }
+    .opp-dest {
+      font-family: "Consolas", "SF Mono", monospace;
+      color: var(--accent2);
+      font-size: 0.82rem;
+      flex: 1;
+    }
+    .opp-reason { font-size: 0.76rem; color: var(--text-muted); flex: 1; }
+
+    /* ── Mermaid graph ── */
+    .mermaid-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 2rem;
+      text-align: center;
+      overflow-x: auto;
+    }
+
+    /* ── SoC violations ── */
+    .soc-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      margin-bottom: 0.75rem;
+    }
+    .soc-header {
+      padding: 0.75rem 1.25rem;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      font-family: "Consolas", "SF Mono", monospace;
+      font-size: 0.85rem;
+      color: var(--accent2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .soc-body { padding: 1rem 1.25rem; }
+    .soc-violation {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      font-size: 0.83rem;
+      margin-bottom: 0.4rem;
+      color: var(--text-muted);
+    }
+    .soc-violation strong { color: var(--text); }
+
+    /* ── Empty state ── */
+    .empty-state {
+      padding: 2rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+{% set facts = state.get('repository_facts') %}
+{% set metrics = facts.metrics if facts else none %}
+{% set issues  = facts.issues  if facts else none %}
+{% set plan    = state.get('refactoring_plan') %}
+{% set feas    = state.get('feasibility_result') %}
+{% set score   = metrics.architecture_score if metrics else 0.0 %}
+{% set score_class = 'excellent' if score > 0.9 else 'good' if score >= 0.8 else 'fair' if score >= 0.6 else 'poor' if score >= 0.4 else 'critical' %}
+{% set score_label = 'Excellent' if score > 0.9 else 'Good' if score >= 0.8 else 'Fair' if score >= 0.6 else 'Poor' if score >= 0.4 else 'Critical' %}
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">⬡ RepoLens</div>
+    <div class="sidebar-repo">{{ state.get('repo_name') or 'repository' }}</div>
+    <nav>
+      <div class="sidebar-section-label">Report</div>
+      <a href="#overview">📊 Overview</a>
+      <a href="#metrics">📈 Metrics</a>
+      <a href="#issues">⚠️ Issues</a>
+      <a href="#soc">🔍 Separation of Concerns</a>
+      <a href="#plan">🗂️ Modularisation Plan</a>
+      <a href="#opportunities">✅ Opportunities</a>
+      <a href="#graph">🕸️ Dependency Graph</a>
+    </nav>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <!-- Header -->
+    <div class="page-header">
+      <h1>{{ state.get('repo_name') or 'Repository' }} Health Report</h1>
+      <div class="meta">
+        Generated by RepoLens &nbsp;·&nbsp;
+        Framework: {{ state.get('framework_detected') or 'unknown' }} &nbsp;·&nbsp;
+        Python: {{ state.get('python_version') or 'unknown' }}
+      </div>
+    </div>
+
+    <!-- Score hero -->
+    <div class="score-hero" id="overview">
+      <div class="score-circle {{ score_class }}">
+        {{ "%.2f"|format(score) }}
+        <div class="score-label">{{ score_label }}</div>
+      </div>
+      <div class="score-info">
+        <h2>Architecture Score</h2>
+        <p>
+          {% if score > 0.9 %}
+            The repository is in excellent structural health with no significant issues detected. The current layout is clean and maintainable.
+          {% elif score >= 0.8 %}
+            The repository is in good shape with minor structural issues. Addressing the detected issues will improve long-term maintainability.
+          {% elif score >= 0.6 %}
+            The repository shows measurable structural concerns that are likely to affect maintainability. Modularization and dependency cleanup would help.
+          {% else %}
+            The repository has significant structural problems that will hinder maintainability. Immediate refactoring is recommended.
+          {% endif %}
+        </p>
+      </div>
+    </div>
+
+    <!-- Stat cards -->
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-value">{{ metrics.total_files if metrics else '—' }}</div>
+        <div class="stat-label">Files</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{ metrics.total_lines if metrics else '—' }}</div>
+        <div class="stat-label">Lines of Code</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{ metrics.total_functions if metrics else '—' }}</div>
+        <div class="stat-label">Functions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{ issues.total_issue_count if issues else '0' }}</div>
+        <div class="stat-label">Issues Found</div>
+      </div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="section" id="metrics">
+      <div class="section-title">📈 Repository Metrics</div>
+      <div class="table-wrap">
+        <table class="metrics-table">
+          <thead>
+            <tr><th>Metric</th><th>Value</th></tr>
+          </thead>
+          <tbody>
+            {% if metrics %}
+            <tr><td>Total Files</td><td>{{ metrics.total_files }}</td></tr>
+            <tr><td>Total Lines</td><td>{{ metrics.total_lines }}</td></tr>
+            <tr><td>Total Functions</td><td>{{ metrics.total_functions }}</td></tr>
+            <tr><td>Total Classes</td><td>{{ metrics.total_classes }}</td></tr>
+            <tr><td>Average File Size</td><td>{{ "%.1f"|format(metrics.average_file_size) }} lines</td></tr>
+            <tr><td>Largest File</td><td>{{ metrics.largest_file }} ({{ metrics.largest_file_lines }} lines)</td></tr>
+            <tr><td>Architecture Score</td><td><span class="badge badge-{{ 'green' if score > 0.9 else 'blue' if score >= 0.8 else 'yellow' if score >= 0.6 else 'red' }}">{{ "%.2f"|format(score) }}</span></td></tr>
+            {% else %}
+            <tr><td colspan="2">No metrics available.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if facts %}
+      <div class="card">
+        <div class="card-title">Coupling Summary</div>
+        <div class="card-meta">
+          {{ facts.import_graph.nodes | length }} modules &nbsp;·&nbsp;
+          {{ facts.import_graph.edges | length }} import edges
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Issues -->
+    <div class="section" id="issues">
+      <div class="section-title">⚠️ Issues Detected</div>
+      {% if issues and issues.total_issue_count > 0 %}
+
+        {% if issues.oversized_files %}
+        <div class="table-wrap" style="margin-bottom:1rem">
+          <div style="padding:0.75rem 1.25rem; font-size:0.82rem; font-weight:600; color:var(--text-muted); background:var(--surface2); border-bottom:1px solid var(--border)">
+            Oversized Files <span class="badge badge-orange" style="margin-left:0.5rem">{{ issues.oversized_files | length }}</span>
+          </div>
+          {% for f in issues.oversized_files %}
+          <div class="issue-item">
+            <div class="issue-dot orange"></div>
+            <div>
+              <div class="issue-text">{{ f.path }}</div>
+              <div class="issue-sub">{{ f.line_count }} lines · {{ f.function_count }} functions · max complexity {{ f.max_branch_complexity }}</div>
+              {% if f.triggered_thresholds %}
+              <div class="issue-sub" style="margin-top:2px">{{ f.triggered_thresholds | join(' · ') }}</div>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if issues.circular_imports %}
+        <div class="table-wrap" style="margin-bottom:1rem">
+          <div style="padding:0.75rem 1.25rem; font-size:0.82rem; font-weight:600; color:var(--text-muted); background:var(--surface2); border-bottom:1px solid var(--border)">
+            Circular Imports <span class="badge badge-red" style="margin-left:0.5rem">{{ issues.circular_imports | length }}</span>
+          </div>
+          {% for c in issues.circular_imports %}
+          <div class="issue-item">
+            <div class="issue-dot red"></div>
+            <div>
+              <div class="issue-text">{{ c.cycle | join(' → ') }}</div>
+              <div class="issue-sub">Severity: {{ c.severity }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if issues.duplicate_functions %}
+        <div class="table-wrap" style="margin-bottom:1rem">
+          <div style="padding:0.75rem 1.25rem; font-size:0.82rem; font-weight:600; color:var(--text-muted); background:var(--surface2); border-bottom:1px solid var(--border)">
+            Duplicate Functions <span class="badge badge-yellow" style="margin-left:0.5rem">{{ issues.duplicate_functions | length }}</span>
+          </div>
+          {% for d in issues.duplicate_functions %}
+          <div class="issue-item">
+            <div class="issue-dot yellow"></div>
+            <div>
+              <div class="issue-text" style="font-family:monospace">{{ d.function_name }}()</div>
+              <div class="issue-sub">{{ d.similarity }} duplicate · found in: {{ d.locations | join(', ') }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+      {% else %}
+        <div class="card"><div class="empty-state">✅ No issues detected. The repository looks clean.</div></div>
+      {% endif %}
+    </div>
+
+    <!-- Separation of Concerns -->
+    <div class="section" id="soc">
+      <div class="section-title">🔍 Separation of Concerns</div>
+      {% set soc_list = state.get('soc_classifications') %}
+      {% if soc_list %}
+        {% for result in soc_list %}
+        <div class="soc-card">
+          <div class="soc-header">
+            {{ result.file_path }}
+            <span class="badge badge-{{ 'red' if not result.requires_separation else 'yellow' }}">
+              confidence {{ "%.0f"|format(result.confidence * 100) }}%
+            </span>
+          </div>
+          <div class="soc-body">
+            <div style="margin-bottom:0.6rem; font-size:0.82rem; color:var(--text-muted)">
+              Responsibilities: {{ result.responsibilities_detected | join(', ') }}
+            </div>
+            {% for v in result.violations %}
+            <div class="soc-violation">
+              <span class="badge badge-{{ 'red' if v.severity == 'high' else 'yellow' if v.severity == 'medium' else 'blue' }}">{{ v.severity }}</span>
+              <strong>{{ v.responsibility }}</strong>
+              <span>— {{ v.evidence | join(', ') }}</span>
+            </div>
+            {% endfor %}
+            <div style="margin-top:0.75rem; font-size:0.82rem; color:var(--text-muted); border-top:1px solid var(--border); padding-top:0.6rem">
+              {{ result.recommendation }}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="card"><div class="empty-state">No separation of concerns analysis available.</div></div>
+      {% endif %}
+    </div>
+
+    <!-- Modularisation Plan -->
+    <div class="section" id="plan">
+      <div class="section-title">🗂️ Proposed Modularisation Plan</div>
+      {% if plan and plan.proposed_modules %}
+        <div class="card" style="margin-bottom:1rem">
+          <div class="card-title">{{ plan.source_file }}</div>
+          <div class="card-meta">{{ plan.overall_reasoning }}</div>
+          {% if plan.functions_staying %}
+          <div class="card-meta" style="margin-top:0.4rem">
+            Staying in place: <span style="font-family:monospace; color:var(--text)">{{ plan.functions_staying | join(', ') }}</span>
+          </div>
+          {% endif %}
+        </div>
+        {% for m in plan.proposed_modules %}
+        <div class="module-card">
+          <div class="module-icon">📦</div>
+          <div style="flex:1">
+            <div class="module-name">{{ m.suggested_path }}</div>
+            <div class="module-functions">{{ m.functions_to_move | join(', ') }}</div>
+            <div class="module-functions" style="margin-top:0.2rem; font-style:italic">{{ m.reasoning }}</div>
+          </div>
+          <div class="module-confidence">
+            <div>Confidence</div>
+            <span>{{ "%.0f"|format(m.confidence * 100) }}%</span>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="card"><div class="empty-state">No modularisation plan available.</div></div>
+      {% endif %}
+    </div>
+
+    <!-- Refactoring Opportunities -->
+    <div class="section" id="opportunities">
+      <div class="section-title">✅ Refactoring Opportunities</div>
+      {% if feas %}
+
+        {% if feas.safe_moves %}
+        <div class="table-wrap" style="margin-bottom:1rem">
+          <div style="padding:0.75rem 1.25rem; font-size:0.82rem; font-weight:600; color:var(--green); background:var(--surface2); border-bottom:1px solid var(--border)">
+            ✅ Safe to Move <span class="badge badge-green" style="margin-left:0.5rem">{{ feas.safe_moves | length }}</span>
+          </div>
+          {% for m in feas.safe_moves %}
+          <div class="opp-row">
+            <span class="opp-fn">{{ m.function_name }}()</span>
+            <span class="opp-arrow">→</span>
+            <span class="opp-dest">{{ m.proposed_destination }}</span>
+            <span class="badge badge-green">safe</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if feas.unsafe_moves %}
+        <div class="table-wrap" style="margin-bottom:1rem">
+          <div style="padding:0.75rem 1.25rem; font-size:0.82rem; font-weight:600; color:var(--red); background:var(--surface2); border-bottom:1px solid var(--border)">
+            ⛔ Unsafe <span class="badge badge-red" style="margin-left:0.5rem">{{ feas.unsafe_moves | length }}</span>
+          </div>
+          {% for m in feas.unsafe_moves %}
+          <div class="opp-row">
+            <span class="opp-fn">{{ m.function_name }}()</span>
+            <span class="opp-arrow">→</span>
+            <span class="opp-dest">{{ m.proposed_destination }}</span>
+            <span class="opp-reason">{{ m.reason }}</span>
+            <span class="badge badge-red">unsafe</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if feas.skipped_moves %}
+        <div class="table-wrap" style="margin-bottom:1rem">
+          <div style="padding:0.75rem 1.25rem; font-size:0.82rem; font-weight:600; color:var(--yellow); background:var(--surface2); border-bottom:1px solid var(--border)">
+            ⏭️ Skipped <span class="badge badge-yellow" style="margin-left:0.5rem">{{ feas.skipped_moves | length }}</span>
+          </div>
+          {% for m in feas.skipped_moves %}
+          <div class="opp-row">
+            <span class="opp-fn">{{ m.function_name }}()</span>
+            <span class="opp-arrow">→</span>
+            <span class="opp-dest">{{ m.proposed_destination }}</span>
+            <span class="opp-reason">{{ m.reason }}</span>
+            <span class="badge badge-yellow">skipped</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if not feas.safe_moves and not feas.unsafe_moves and not feas.skipped_moves %}
+        <div class="card"><div class="empty-state">No refactoring opportunities assessed.</div></div>
+        {% endif %}
+
+      {% else %}
+        <div class="card"><div class="empty-state">No feasibility analysis available.</div></div>
+      {% endif %}
+    </div>
+
+    <!-- Dependency Graph -->
+    <div class="section" id="graph">
+      <div class="section-title">🕸️ Dependency Graph</div>
+      <div class="mermaid-wrap">
+        <pre class="mermaid">{{ mermaid_diagram }}</pre>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#6366f1',
+      primaryTextColor: '#e2e8f0',
+      primaryBorderColor: '#2e3250',
+      lineColor: '#94a3b8',
+      background: '#1a1d27',
+      mainBkg: '#22263a',
+      nodeBorder: '#2e3250',
+      clusterBkg: '#1a1d27',
+      titleColor: '#e2e8f0',
+      edgeLabelBackground: '#1a1d27',
+    }
+  });
+
+  // Sidebar active link on scroll
+  const sections = document.querySelectorAll('.section, .score-hero');
+  const links = document.querySelectorAll('.sidebar nav a');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const match = document.querySelector(`.sidebar nav a[href="#${entry.target.id}"]`);
+        if (match) match.classList.add('active');
+      }
+    });
+  }, { threshold: 0.3 });
+  sections.forEach(s => { if (s.id) observer.observe(s); });
+</script>
+
+</body>
 </html>

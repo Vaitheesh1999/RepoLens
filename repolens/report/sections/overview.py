@@ -33,15 +33,25 @@ def render_overview(state: GraphState) -> str:
     issues = repository_facts.issues if repository_facts is not None else None
     issue_count = issues.total_issue_count if issues is not None else 0
 
-    if issue_count > 0:
+    if architecture_score > 0.9:
+        summary_sentence = (
+            "The repository is in excellent structural health with no significant issues detected. "
+            "The current layout is clean and maintainable."
+        )
+    elif architecture_score >= 0.7:
+        summary_sentence = (
+            "The repository is in good shape with minor structural issues. "
+            "Addressing the detected issues will improve long-term maintainability."
+        )
+    elif architecture_score >= 0.5:
         summary_sentence = (
             "The repository shows measurable structural concerns that are likely to affect maintainability. "
             "The detected issues point to areas where modularization and dependency cleanup would help."
         )
     else:
         summary_sentence = (
-            "The repository appears to be in strong shape with no major structural issues detected. "
-            "The current layout is likely to remain maintainable with only light follow-up work."
+            "The repository has significant structural problems that will hinder maintainability. "
+            "Immediate refactoring is recommended to address circular imports, oversized files, and separation of concerns violations."
         )
 
     git_metadata = state.get("git_metadata")
