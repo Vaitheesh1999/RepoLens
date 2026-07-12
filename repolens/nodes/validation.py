@@ -4,31 +4,45 @@ from typing import Any
 
 from repolens.graph.state import GraphState
 from repolens.llm.schemas.plan import PlannerFeedback
+from repolens.utils.logger import log_node_start, log_node_end
 
 
 def validation(state: GraphState) -> dict[str, Any]:
     """Validate a proposed refactoring plan against AST-backed repository facts."""
+    start = log_node_start("validation",
+        retry=state.get("validation_retry_count", 0),
+    )
     repository_facts = state.get("repository_facts")
     plan = state.get("refactoring_plan")
     errors = list(state.get("errors", []))
 
     if repository_facts is None or plan is None:
-        return {
+        result = {
             "plan_valid": False,
             "validation_retry_count": state.get("validation_retry_count", 0) + 1,
             "planner_feedback": None,
             "errors": errors,
         }
+        log_node_end("validation", start,
+            valid=result.get("plan_valid", False),
+            errors=len(result.get("planner_feedback").validation_errors if result.get("planner_feedback") else []),
+        )
+        return result
 
     source_file = plan.source_file
     source_facts = repository_facts.file_facts.get(source_file)
     if source_facts is None:
-        return {
+        result = {
             "plan_valid": False,
             "validation_retry_count": state.get("validation_retry_count", 0) + 1,
             "planner_feedback": None,
             "errors": errors,
         }
+        log_node_end("validation", start,
+            valid=result.get("plan_valid", False),
+            errors=len(result.get("planner_feedback").validation_errors if result.get("planner_feedback") else []),
+        )
+        return result
 
     available_functions = {function.name for function in source_facts.functions}
     available_classes = {class_fact.name for class_fact in source_facts.classes}
@@ -73,16 +87,26 @@ def validation(state: GraphState) -> dict[str, Any]:
             human_feedback=None,
             feedback_history=feedback_history,
         )
-        return {
+        result = {
             "plan_valid": False,
             "validation_retry_count": state.get("validation_retry_count", 0) + 1,
             "planner_feedback": planner_feedback,
             "errors": errors,
         }
+        log_node_end("validation", start,
+            valid=result.get("plan_valid", False),
+            errors=len(result.get("planner_feedback").validation_errors if result.get("planner_feedback") else []),
+        )
+        return result
 
-    return {
+    result = {
         "plan_valid": True,
         "validation_retry_count": state.get("validation_retry_count", 0),
         "planner_feedback": None,
         "errors": errors,
     }
+    log_node_end("validation", start,
+        valid=result.get("plan_valid", False),
+        errors=len(result.get("planner_feedback").validation_errors if result.get("planner_feedback") else []),
+    )
+    return result

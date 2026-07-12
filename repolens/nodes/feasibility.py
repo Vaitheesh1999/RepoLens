@@ -5,16 +5,21 @@ from typing import Any
 from repolens.graph.state import GraphState
 from repolens.models.config_models import AnalysisConfig
 from repolens.models.feasibility_models import FeasibilityResult, MoveDecision
+from repolens.utils.logger import log_node_start, log_node_end
 
 
 def feasibility(state: GraphState) -> dict[str, Any]:
     """Assess whether each proposed refactoring move is safe to recommend."""
+    start = log_node_start("feasibility",
+        moves_to_check=len(state.get("refactoring_plan").proposed_modules)
+            if state.get("refactoring_plan") else 0,
+    )
     repository_facts = state.get("repository_facts")
     plan = state.get("refactoring_plan")
     config = state.get("config") or AnalysisConfig()
 
     if repository_facts is None or plan is None:
-        return {
+        result = {
             "feasibility_result": FeasibilityResult(
                 safe_moves=[],
                 unsafe_moves=[],
@@ -23,10 +28,17 @@ def feasibility(state: GraphState) -> dict[str, Any]:
             ),
             "errors": list(state.get("errors", [])),
         }
+        feas = result.get("feasibility_result")
+        log_node_end("feasibility", start,
+            safe=len(feas.safe_moves) if feas else 0,
+            unsafe=len(feas.unsafe_moves) if feas else 0,
+            skipped=len(feas.skipped_moves) if feas else 0,
+        )
+        return result
 
     source_facts = repository_facts.file_facts.get(plan.source_file)
     if source_facts is None:
-        return {
+        result = {
             "feasibility_result": FeasibilityResult(
                 safe_moves=[],
                 unsafe_moves=[],
@@ -35,6 +47,13 @@ def feasibility(state: GraphState) -> dict[str, Any]:
             ),
             "errors": list(state.get("errors", [])),
         }
+        feas = result.get("feasibility_result")
+        log_node_end("feasibility", start,
+            safe=len(feas.safe_moves) if feas else 0,
+            unsafe=len(feas.unsafe_moves) if feas else 0,
+            skipped=len(feas.skipped_moves) if feas else 0,
+        )
+        return result
 
     function_lookup = {function.name: function for function in source_facts.functions}
     safe_moves: list[MoveDecision] = []
@@ -120,7 +139,14 @@ def feasibility(state: GraphState) -> dict[str, Any]:
             f"{len(safe_moves)} safe, {len(unsafe_moves)} unsafe, {len(skipped_moves)} skipped moves"
         ),
     )
-    return {"feasibility_result": result, "errors": list(state.get("errors", []))}
+    result_dict = {"feasibility_result": result, "errors": list(state.get("errors", []))}
+    feas = result_dict.get("feasibility_result")
+    log_node_end("feasibility", start,
+        safe=len(feas.safe_moves) if feas else 0,
+        unsafe=len(feas.unsafe_moves) if feas else 0,
+        skipped=len(feas.skipped_moves) if feas else 0,
+    )
+    return result_dict
 
 
 def _would_create_circular_import(adjacency: dict[str, list[str]], source_file: str, proposed_destination: str) -> bool:
