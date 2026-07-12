@@ -59,14 +59,30 @@ def build_planning_prompt(
     else:
         base_sections.append("- none")
 
+    # Determine the primary source file from candidate groups
+    source_file = candidate_groups[0].source_file if candidate_groups else "unknown"
+    all_functions_in_source = []
+    for group in candidate_groups:
+        if group.source_file == source_file:
+            all_functions_in_source.extend(group.functions)
+
     base_sections.extend([
         "",
-        "Constraints:",
+        f"The source file you are planning to split is: {source_file}",
+        f"The functions available to move from this file are: {', '.join(all_functions_in_source) or 'none'}",
+        "",
+        "Constraints — you must follow all of these exactly:",
+        f"- source_file in your response must be exactly: {source_file}",
+        "- Only propose moving functions that are listed in the candidate groups above.",
+        "- Do not propose moving functions from a different file.",
         "- Do not invent function names.",
-        "- Do not invent file paths.",
-        "- Every function in the source file must be accounted for as either moved or staying.",
-        "- Use only the provided repository facts and candidate groups.",
-        "- Return a valid RefactoringPlan object with the following fields: source_file, proposed_modules, functions_staying, overall_reasoning, requires_human_review, overall_confidence.",
+        "- Do not use './' as a destination path.",
+        "- suggested_path must be a full relative file path ending in .py — for example: utils/date_helpers.py",
+        "- suggested_filename must be just the filename ending in .py — for example: date_helpers.py",
+        "- A function cannot appear in both functions_to_move and functions_staying. Pick one.",
+        f"- Every function available in {source_file} must appear exactly once: either in functions_to_move of one proposed module, or in functions_staying.",
+        "- If you are uncertain about a function, put it in functions_staying rather than proposing an invalid move.",
+        "- Return a valid RefactoringPlan object with fields: source_file, proposed_modules, functions_staying, overall_reasoning, requires_human_review, overall_confidence.",
     ])
 
     if planner_feedback is not None:
