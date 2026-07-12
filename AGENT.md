@@ -7,6 +7,17 @@
 ---
 
 ## What You Are Building
+## CLI Options
+The tool supports the following CLI options:
+- `--output-dir`: Directory for generated reports
+- `--config`: Path to repolens.toml
+- `--open`: Open report in browser
+- `--verbose`: Show debug-level logs including raw prompt details
+- `--log-file`: Path to write log file
+- `--provider`: LLM provider to use (anthropic, openai, groq)
+- `--api-key`: API key for the selected provider
+- `--model`: Model name to use
+
 
 RepoLens is an AI-powered Python repository analysis tool.
 
@@ -100,11 +111,13 @@ repolens/
 │   ├── sections/
 │   └── templates/
 ├── utils/
+│   └── logger.py
 └── tests/
     ├── fixtures/
     │   ├── simple_flask_app/
     │   └── messy_fastapi_app/
     ├── unit/
+    │   └── test_logger.py
     └── integration/
 ```
 
@@ -195,11 +208,21 @@ Test routing functions with plain dicts — no LangGraph setup needed.
 
 ---
 
+
+## Logging System
+
+All logging is handled through `repolens/utils/logger.py`.
+- Deterministic nodes and analysis functions use `get_logger("component")`.
+- LangGraph nodes use `log_node_start` and `log_node_end`.
+- LLM calls are logged and tracked for tokens via `invoke_structured` using `log_llm_call`.
+- A session-level dictionary `_session` tracks tokens and duration.
+- Use `set_level(verbose)` to toggle debug logging and `log_session_summary()` to print the final stats.
+
 ## LLM Configuration
 
-- Provider: configurable (Anthropic or OpenAI)
+- Provider: configurable (Anthropic, OpenAI, or Groq) with per-provider default models and api_key in AnalysisConfig
 - Temperature: **0.1** — structured reasoning task, not creative generation
-- Output: always `.with_structured_output(PydanticModel)` — never free text
+- Output: always `.with_structured_output(PydanticModel)` via `invoke_structured()` in `llm/client.py` — never free text
 - No tool calling. No ReAct. No agents invoking external tools.
 
 ---
@@ -208,7 +231,7 @@ Test routing functions with plain dicts — no LangGraph setup needed.
 
 Every task must include tests. Do not skip tests.
 
-**Unit tests** go in `tests/unit/`. They test pure functions with no external dependencies.
+**Unit tests** go in `tests/unit/`. They test pure functions with no external dependencies. The current test suite has 163 unit tests.
 
 **Routing tests** go in `tests/unit/test_edges.py`. They look like this:
 ```python
