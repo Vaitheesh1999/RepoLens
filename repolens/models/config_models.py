@@ -18,8 +18,8 @@ class AnalysisConfig(BaseModel):
 
     # LLM configuration
     # LLM configuration
-    llm_provider: str = Field(default="anthropic", description="LLM provider: 'anthropic' or 'openai'")
-    llm_model: str = Field(default="claude-3-5-sonnet-20241022", description="LLM model name")
+    llm_provider: str = Field(default="groq", description="LLM provider: 'anthropic','openai'  or 'groq'")
+    llm_model: str | None = Field(default=None, description="LLM model name — if not set, a default is chosen per provider")
     api_key: str | None = Field(default=None, description="API key for the selected LLM provider")
     # Unsafe decorator patterns that indicate mixed concerns
     unsafe_decorator_patterns: list[str] = Field(
