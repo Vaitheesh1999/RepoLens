@@ -12,11 +12,19 @@ The tool supports the following CLI options:
 - `--output-dir`: Directory for generated reports
 - `--config`: Path to repolens.toml
 - `--open`: Open report in browser
-- `--verbose`: Show debug-level logs including raw prompt details
-- `--log-file`: Path to write log file
-- `--provider`: LLM provider to use (anthropic, openai, groq)
-- `--api-key`: API key for the selected provider
-- `--model`: Model name to use
+- `--provider`   LLM provider: anthropic, openai, or groq.
+             Controls which env var is checked as fallback.
+- `--api-key`    API key for the selected provider.
+             Stored in config.api_key for the duration of the run only.
+             Never persisted. Never logged.
+             Users should prefer environment variables.
+- `--model`      Overrides the per-provider default model.
+             Default models are defined in llm/client.py DEFAULT_MODELS dict.
+- `--verbose`    Sets log level to DEBUG.
+             Never enables logging of API keys even in DEBUG mode.
+- `--log-file`   Path for rotating log file.
+             Default: logs/repolens.log
+             This file never contains API keys.
 
 
 RepoLens is an AI-powered Python repository analysis tool.
@@ -280,6 +288,16 @@ def test_route_after_validation_proceeds_at_max():
 
 - No execution engine (V2 only)
 - No file modification or codemods (V2 only)
+
+**Files the agent should not modify:**
+- `~/.repolens.env` and any `.env` files.
+  Never read, log, or print API keys.
+  Never include config.api_key in any log message or error output.
+  The api_key field in AnalysisConfig must never appear in:
+  - Log files
+  - Error messages
+  - Report output
+  - Debug output
 - No git rollback (V2 only)
 - No human review interrupt (V2 only)
 - No RAG / vector store (V1.5 only)

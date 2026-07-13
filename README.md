@@ -199,6 +199,81 @@ Reports are generated in:
 
 ---
 
+## Configuration
+
+### API Keys
+
+RepoLens supports three LLM providers.
+Set your API key using environment variables — this is the
+recommended approach because CLI arguments appear in shell history.
+
+**Windows PowerShell (current session only):**
+```powershell
+$env:GROQ_API_KEY = "gsk_..."
+$env:ANTHROPIC_API_KEY = "sk-ant-..."
+$env:OPENAI_API_KEY = "sk-..."
+```
+
+**Mac/Linux (current session only):**
+```bash
+export GROQ_API_KEY="gsk_..."
+export ANTHROPIC_API_KEY="sk-ant-..."
+export OPENAI_API_KEY="sk-..."
+```
+
+Environment variables set this way exist only for the current
+terminal session. When the terminal closes, they are gone.
+They never appear in shell history.
+
+### Persistent configuration (optional)
+
+Create a file at `~/.repolens.env` with your keys:
+
+```text
+GROQ_API_KEY=gsk_...
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+```
+
+RepoLens will load this file automatically if `python-dotenv`
+is installed:
+```bash
+pip install python-dotenv
+```
+
+### Supported environment variables
+
+| Variable            | Provider    |
+|---------------------|-------------|
+| GROQ_API_KEY        | groq        |
+| ANTHROPIC_API_KEY   | anthropic   |
+| OPENAI_API_KEY      | openai      |
+
+### Using --api-key directly
+
+You can still pass keys directly via the CLI flag:
+```bash
+repolens analyze ./my-repo --provider groq --api-key gsk_...
+```
+
+Be aware this will appear in your PowerShell or bash history.
+To clear it:
+
+**PowerShell:** `Clear-History`  
+**Mac/Linux:** `history -c`
+
+### Provider default models
+
+| Provider    | Default model                  |
+|-------------|-------------------------------|
+| groq        | llama-3.3-70b-versatile        |
+| anthropic   | claude-3-5-sonnet-20241022     |
+| openai      | gpt-4o-mini                   |
+
+Override with: `--model your-model-name`
+
+---
+
 # How It Works
 
 RepoLens executes a six-node LangGraph workflow:

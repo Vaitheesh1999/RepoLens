@@ -666,6 +666,33 @@ result = invoke_structured(
 
 The `invoke_structured()` wrapper handles Pydantic validation automatically via LangChain's `.with_structured_output()`, while also extracting tokens and logging the call. If the LLM returns output that fails validation, the node catches the exception and records it in `state["errors"]`.
 
+### API Key Resolution Order
+
+The system resolves the API key in this priority order:
+
+1. --api-key CLI flag (highest priority, appears in shell history)
+2. Environment variable: GROQ_API_KEY / ANTHROPIC_API_KEY / OPENAI_API_KEY
+3. ~/.repolens.env file loaded via python-dotenv (if installed)
+4. None — LLM nodes are skipped, deterministic report only
+
+The LLM client (llm/client.py) reads config.api_key first,
+then falls back to os.getenv() for the provider-specific variable.
+
+The API key is never written to disk by RepoLens.
+It is never included in log output.
+It exists only in memory for the duration of the analysis run.
+
+### Security Notes
+
+- API keys passed via --api-key appear in shell history.
+  Users should prefer environment variables.
+- The logs/ directory never contains API keys.
+  The logging system logs provider name and model only.
+- The output/ directory contains only the analysis report.
+  No credentials or repository source code are written to output/.
+- The .repolens.env file should never be committed to git.
+  Add it to .gitignore if created.
+
 ---
 
 
