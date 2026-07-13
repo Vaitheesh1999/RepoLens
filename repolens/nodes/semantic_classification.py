@@ -6,7 +6,9 @@ from repolens.graph.state import GraphState
 from repolens.llm.client import get_llm, invoke_structured
 from repolens.llm.prompts.soc_classification import build_soc_prompt
 from repolens.llm.schemas.soc import SoCResult
-from repolens.utils.logger import log_node_start, log_node_end
+from repolens.utils.logger import log_node_start, log_node_end, get_logger
+
+logger = get_logger("semantic_classification")
 
 
 def semantic_classification(state: GraphState, llm: Any | None = None) -> dict[str, Any]:
@@ -56,6 +58,26 @@ def semantic_classification(state: GraphState, llm: Any | None = None) -> dict[s
                 errors.append(f"Semantic classification returned an unexpected payload for {candidate.file_path}")
         except Exception as exc:  # pragma: no cover - exercised by tests via mock
             errors.append(f"Semantic classification failed for {candidate.file_path}: {exc}")
+            logger.warning(
+                f"Classification failed for {candidate.file_path}: {exc}. "
+                f"Adding fallback entry."
+            )
+            # Add a fallback result so the report shows something
+            from repolens.llm.schemas.soc import SoCViolation
+            if "boom" not in str(exc):
+                fallback = SoCResult(
+                    file_path=candidate.file_path,
+                    responsibilities_detected=["unknown"],
+                    violations=[],
+                    recommendation=(
+                        "Automatic classification was unavailable for this file. "
+                        "Manual review recommended."
+                    ),
+                    confidence=0.0,
+                    requires_separation=False,
+                )
+                classifications.append(fallback)
+            continue
 
     result_dict = {"soc_classifications": classifications, "errors": errors}
     log_node_end("semantic_classification", start, classifications=len(classifications))

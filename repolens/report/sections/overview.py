@@ -77,4 +77,24 @@ def render_overview(state: GraphState) -> str:
         lines.extend(f"- {line}" for line in git_lines)
     lines.append("")
     lines.append(summary_sentence)
-    return "\n".join(lines)
+
+    # Detect if LLM was unavailable
+    soc_classifications = state.get("soc_classifications") or []
+    refactoring_plan = state.get("refactoring_plan")
+    errors = state.get("errors") or []
+
+    llm_skipped = (
+        len(soc_classifications) == 0
+        and refactoring_plan is None
+    )
+
+    llm_note = ""
+    if llm_skipped:
+        llm_note = (
+            "\n\n> **Note:** LLM-powered sections (Separation of Concerns "
+            "Analysis and Modularisation Plan) were skipped because no LLM "
+            "provider was available or the API key was missing. "
+            "The deterministic analysis above is complete and accurate."
+        )
+
+    return "\n".join(lines) + llm_note

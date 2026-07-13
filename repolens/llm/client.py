@@ -5,6 +5,9 @@ import os
 from langchain_core.language_models import BaseChatModel
 
 from repolens.models.config_models import AnalysisConfig
+from repolens.utils.logger import get_logger
+
+logger = get_logger("llm")
 
 
 def get_llm(config: AnalysisConfig | None) -> BaseChatModel | None:
@@ -112,38 +115,67 @@ def invoke_structured(
 
     start = time.time()
 
-    # Step 1 — get raw response to capture token metadata
-    raw_response = llm.invoke(prompt)
-    duration = round(time.time() - start, 3)
+    MAX_ATTEMPTS = 2
+    last_error = None
 
-    # Step 2 — extract token counts from raw response
-    prompt_tokens = 0
-    completion_tokens = 0
+    for attempt_num in range(1, MAX_ATTEMPTS + 1):
+        try:
+            # Step 1 — get raw response to capture token metadata
+            raw_response = llm.invoke(prompt)
+            duration = round(time.time() - start, 3)
 
-    # Anthropic / OpenAI
-    if hasattr(raw_response, "usage_metadata") and raw_response.usage_metadata:
-        usage = raw_response.usage_metadata
-        prompt_tokens = usage.get("input_tokens", 0)
-        completion_tokens = usage.get("output_tokens", 0)
+            # Step 2 — extract token counts from raw response
+            prompt_tokens = 0
+            completion_tokens = 0
 
-    # Groq — usage is in response_metadata
-    if prompt_tokens == 0 and hasattr(raw_response, "response_metadata"):
-        usage = raw_response.response_metadata.get("token_usage", {})
-        prompt_tokens = usage.get("prompt_tokens", 0)
-        completion_tokens = usage.get("completion_tokens", 0)
+            # Anthropic / OpenAI
+            if hasattr(raw_response, "usage_metadata") and raw_response.usage_metadata:
+                usage = raw_response.usage_metadata
+                prompt_tokens = usage.get("input_tokens", 0)
+                completion_tokens = usage.get("output_tokens", 0)
 
-    log_llm_call(
-        provider=config.llm_provider if config else "mock",
-        model=resolved_model,
-        node=node,
-        prompt_tokens=prompt_tokens,
-        completion_tokens=completion_tokens,
-        duration=duration,
-        attempt=attempt,
-    )
+            # Groq — usage is in response_metadata
+            if prompt_tokens == 0 and hasattr(raw_response, "response_metadata"):
+                usage = raw_response.response_metadata.get("token_usage", {})
+                prompt_tokens = usage.get("prompt_tokens", 0)
+                completion_tokens = usage.get("completion_tokens", 0)
 
-    # Step 3 — parse structured output from raw response content
-    structured_llm = llm.with_structured_output(schema)
-    parsed = structured_llm.invoke(prompt)
+            log_llm_call(
+                provider=config.llm_provider if config else "mock",
+                model=resolved_model,
+                node=node,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                duration=duration,
+                attempt=attempt_num,
+            )
 
-    return parsed
+            # Step 3 — parse structured output from raw response content
+            try:
+                structured_llm = llm.with_structured_output(schema)
+                parsed = structured_llm.invoke(prompt)
+                return parsed
+            except Exception as parse_error:
+                # Check if this looks like a validation/parsing error
+                error_name = type(parse_error).__name__
+                if any(name in error_name for name in
+                       ["Validation", "Pydantic", "OutputParser", "JSONDecode"]):
+                    logger.warning(
+                        f"Schema validation failed node={node} "
+                        f"attempt={attempt_num} error={parse_error}"
+                    )
+                    # Treat as a retryable error — let the outer loop handle retry
+                    raise parse_error
+                else:
+                    raise parse_error
+
+        except Exception as e:
+            last_error = e
+            logger.warning(
+                f"LLM call failed on attempt {attempt_num}/{MAX_ATTEMPTS} "
+                f"node={node} error={type(e).__name__}: {e}"
+            )
+            if attempt_num < MAX_ATTEMPTS:
+                time.sleep(2)
+
+    raise last_error
