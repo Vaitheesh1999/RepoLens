@@ -15,12 +15,11 @@ Run with:
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 
 from repolens.graph.state import GraphState
-from repolens.llm.schemas.plan import ProposedModule, RefactoringPlan
+from repolens.llm.schemas.plan import RefactoringPlan
 from repolens.llm.schemas.soc import SoCResult
 from repolens.models.config_models import AnalysisConfig
 from repolens.models.issue_models import SoCCandidate
@@ -223,7 +222,6 @@ class TestValidationFailure:
                 return self
 
             def invoke(self, prompt):
-                from pydantic import ValidationError
                 # Simulate returning an object that fails schema validation
                 raise ValueError("Output parser failed to parse output")
 
@@ -375,7 +373,7 @@ class TestRuleBasedPlanningFallback:
 
         # Either a real plan or a rule-based one should be present
         plan = result.get("refactoring_plan")
-        reasoning = result.get("planning_reasoning", "")
+        
 
         if plan is not None:
             # If a plan exists, it should have some content
@@ -528,7 +526,6 @@ class TestEndToEndWithoutLLM:
     def test_pipeline_completes_without_api_key(self):
         """With no API key, deterministic stages should still complete."""
         from repolens.nodes.ingestion import ingestion
-        from repolens.nodes.feasibility import feasibility
 
         config = AnalysisConfig(
             llm_provider="anthropic",

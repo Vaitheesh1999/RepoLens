@@ -81,7 +81,7 @@ def render_overview(state: GraphState) -> str:
     # Detect if LLM was unavailable
     soc_classifications = state.get("soc_classifications") or []
     refactoring_plan = state.get("refactoring_plan")
-    errors = state.get("errors") or []
+    
 
     llm_skipped = (
         len(soc_classifications) == 0

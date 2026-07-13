@@ -63,7 +63,6 @@ def semantic_classification(state: GraphState, llm: Any | None = None) -> dict[s
                 f"Adding fallback entry."
             )
             # Add a fallback result so the report shows something
-            from repolens.llm.schemas.soc import SoCViolation
             if "boom" not in str(exc):
                 fallback = SoCResult(
                     file_path=candidate.file_path,
