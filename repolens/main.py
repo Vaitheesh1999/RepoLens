@@ -41,6 +41,15 @@ def analyze(
     set_level(verbose)
 
     try:
+        from repolens.utils.repo_loader import is_github_url, clone_repo, cleanup_repo
+
+        cloned_path = None
+        analysis_path = repo_path
+        if is_github_url(repo_path):
+            console.print(f"[bold green]Cloning repository from {repo_path}...[/bold green]")
+            cloned_path = clone_repo(repo_path)
+            analysis_path = str(cloned_path)
+
         analysis_config = load_config(config) if config is not None else AnalysisConfig()
 
         if provider is not None:
@@ -64,7 +73,7 @@ def analyze(
         console.print("[green]✓[/green] Analysis complete")
 
         with console.status("[bold green]Running LangGraph pipeline...[/bold green]"):
-            state = run_analysis(repo_path, analysis_config)
+            state = run_analysis(analysis_path, analysis_config)
 
         console.print("[green]✓[/green] Semantic Classification complete")
         console.print("[green]✓[/green] Planning complete")
@@ -121,7 +130,14 @@ def analyze(
 
     except Exception as exc:  # pragma: no cover
         console.print(f"\n[red bold]Analysis failed:[/red bold] {exc}")
-        raise
+        if verbose:
+            raise
+        else:
+            import sys
+            sys.exit(1)
+    finally:
+        if 'cloned_path' in locals() and cloned_path is not None:
+            cleanup_repo(cloned_path)
 
 
 @click.group()
